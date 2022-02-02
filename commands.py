@@ -1,4 +1,5 @@
 import socket
+import time
 
 
 def clamp(n, smallest, largest):
@@ -8,23 +9,65 @@ def clamp(n, smallest, largest):
 class Tello:
 
     def __init__(self, interface):
+        self.interface = interface
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, 25, interface)
+        self.sock.setsockopt(socket.SOL_SOCKET, 25, self.interface)
         self.tello_address = ('192.168.10.1', 8889)
+
+        self.buf_size = 1024
+        self.resend_delay = 0.1
+        self.timeout = 4
+
+    def send_command(self, command):
+        start_time = time.time()
+        while True:
+            self.sock.sendto('command'.encode(), 0, self.tello_address)
+            print(self.interface, 'send', 'command')
+            data = self.sock.recv(self.buf_size)
+            message = data.decode()
+            print(self.interface, 'get', message)
+
+            if message == 'ok':
+                print(self.interface, 'status', 'OK')
+                break
+            elif message == 'error':
+                print(self.interface, 'status', 'ERROR')
+                return False
+            elif time.time() - start_time > self.timeout:
+                print(self.interface, 'status', 'TIMEOUT')
+                return False
+            else:
+                print(self.interface, 'status', 'NO RESPOND')
+
+            time.sleep(self.resend_delay)
+
+        self.sock.sendto(command.encode(), 0, self.tello_address)
+        print(self.interface, 'send', 'takeoff')
+        data = self.sock.recv(self.buf_size)
+        message = data.decode()
+        print(self.interface, 'get', message)
+
+        if message == 'ok':
+            print(self.interface, 'status', 'OK')
+            return True
+        elif message == 'error':
+            print(self.interface, 'status', 'ERROR')
+            return False
+        else:
+            print(self.interface, 'status', 'NO RESPOND')
+            return False
 
     def takeoff(self):
         """
         Auto takeoff
         """
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto('takeoff'.encode(), 0, self.tello_address)
+        self.send_command('takeoff')
 
     def land(self):
         """
         Auto landing
         """
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto('land'.encode(), 0, self.tello_address)
+        self.send_command('land')
 
     def up(self, xx):
         """
@@ -33,8 +76,7 @@ class Tello:
         :param xx: distance (20-500 cm)
         """
         xx = clamp(int(xx), 20, 500)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['up', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['up', str(xx)]))
 
     def down(self, xx):
         """
@@ -43,8 +85,7 @@ class Tello:
         :param xx: distance (20-500 cm)
         """
         xx = clamp(int(xx), 20, 500)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['down', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['down', str(xx)]))
 
     def left(self, xx):
         """
@@ -53,8 +94,7 @@ class Tello:
         :param xx: distance (20-500 cm)
         """
         xx = clamp(int(xx), 20, 500)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['left', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['left', str(xx)]))
 
     def right(self, xx):
         """
@@ -63,8 +103,7 @@ class Tello:
         :param xx: distance (20-500 cm)
         """
         xx = clamp(int(xx), 20, 500)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['right', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['right', str(xx)]))
 
     def forward(self, xx):
         """
@@ -73,8 +112,7 @@ class Tello:
         :param xx: distance (20-500 cm)
         """
         xx = clamp(int(xx), 20, 500)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['forward', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['forward', str(xx)]))
 
     def back(self, xx):
         """
@@ -83,8 +121,7 @@ class Tello:
         :param xx: distance (20-500 cm)
         """
         xx = clamp(int(xx), 20, 500)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['back', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['back', str(xx)]))
 
     def cw(self, xx):
         """
@@ -93,8 +130,7 @@ class Tello:
         :param xx: angle (1-360 deg)
         """
         xx = clamp(int(xx), 1, 360)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['cw', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['cw', str(xx)]))
 
     def ccw(self, xx):
         """
@@ -103,8 +139,7 @@ class Tello:
         :param xx: angle (1-360 deg)
         """
         xx = clamp(int(xx), 1, 360)
-        self.sock.sendto('command'.encode(), 0, self.tello_address)
-        self.sock.sendto(' '.join(['ccw', str(xx)]).encode(), 0, self.tello_address)
+        self.send_command(' '.join(['ccw', str(xx)]))
 
     def flip(self, xx):
         """
@@ -114,8 +149,7 @@ class Tello:
             bl = (back/left), rb = (back/right), fl = (front/left), fr = (front/right)
         """
         if xx in ['l', 'r', 'f', 'b', 'bl', 'rb', 'fl', 'fr']:
-            self.sock.sendto('command'.encode(), 0, self.tello_address)
-            self.sock.sendto(' '.join(['flip', xx]).encode(), 0, self.tello_address)
+            self.send_command(' '.join(['flip', xx]))
 
     def set_speed(self, xx):
         """
