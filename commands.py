@@ -24,7 +24,7 @@ class Tello:
             self.sock.sendto('command'.encode(), 0, self.tello_address)
             print(self.interface, 'send', 'command')
             data = self.sock.recv(self.buf_size)
-            message = data.decode()
+            message = data.decode(encoding='utf-8', errors='ignore')
             print(self.interface, 'get', message)
 
             if message == 'ok':
@@ -42,9 +42,9 @@ class Tello:
             time.sleep(self.resend_delay)
 
         self.sock.sendto(command.encode(), 0, self.tello_address)
-        print(self.interface, 'send', 'takeoff')
+        print(self.interface, 'send', command)
         data = self.sock.recv(self.buf_size)
-        message = data.decode()
+        message = data.decode(encoding='utf-8', errors='ignore')
         print(self.interface, 'get', message)
 
         if message == 'ok':
