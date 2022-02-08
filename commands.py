@@ -1,5 +1,6 @@
 import socket
 import time
+import re
 
 
 def clamp(n, smallest, largest):
@@ -18,44 +19,32 @@ class Tello:
         self.resend_delay = 0.1
         self.timeout = 4
 
-    def send_command(self, command):
+    def send_message(self, message):
         start_time = time.time()
         while True:
-            self.sock.sendto('command'.encode(), 0, self.tello_address)
-            print(self.interface, 'send', 'command')
+            self.sock.sendto(message.encode(), 0, self.tello_address)
+            print(self.interface, 'send', message)
             data = self.sock.recv(self.buf_size)
-            message = data.decode(encoding='utf-8', errors='ignore')
-            print(self.interface, 'get', message)
+            response = data.decode(encoding='utf-8', errors='ignore')
+            print(self.interface, 'get', response)
 
-            if message == 'ok':
+            if response == 'ok':
                 print(self.interface, 'status', 'OK')
                 break
-            elif message == 'error':
-                print(self.interface, 'status', 'ERROR')
-                return False
             elif time.time() - start_time > self.timeout:
                 print(self.interface, 'status', 'TIMEOUT')
-                return False
+                break
+            elif re.match('error', response):
+                print(self.interface, 'status', 'ERROR')
+                continue
             else:
-                print(self.interface, 'status', 'NO RESPOND')
+                print(self.interface, 'status', 'UNRECOGNIZED')
 
             time.sleep(self.resend_delay)
 
-        self.sock.sendto(command.encode(), 0, self.tello_address)
-        print(self.interface, 'send', command)
-        data = self.sock.recv(self.buf_size)
-        message = data.decode(encoding='utf-8', errors='ignore')
-        print(self.interface, 'get', message)
-
-        if message == 'ok':
-            print(self.interface, 'status', 'OK')
-            return True
-        elif message == 'error':
-            print(self.interface, 'status', 'ERROR')
-            return False
-        else:
-            print(self.interface, 'status', 'NO RESPOND')
-            return False
+    def send_command(self, command):
+        self.send_message('command')
+        self.send_message(command)
 
     def takeoff(self):
         """
